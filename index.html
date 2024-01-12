@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上传和互动页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #upload-box {
+            margin: 20px;
+            border: 1px solid #ccc;
+            padding: 20px;
+        }
+        #chat-box {
+            margin: 20px;
+            border: 1px solid #ccc;
+            padding: 20px;
+            height: 300px;
+            overflow-y: auto;
+        }
+        #user-input {
+            margin: 20px;
+            width: 95%;
+        }
+    </style>
+</head>
+<body>
+
+<div id="upload-box">
+    <input type="file" id="file-input" accept=".pdf" />
+    <button onclick="uploadFile()">上传文件</button>
+</div>
+
+<div id="chat-box" aria-live="polite">
+    <!-- Chat messages will be added here dynamically -->
+</div>
+
+<input type="text" id="user-input" placeholder="在此输入你的消息..." />
+<button onclick="sendMessage()">发送</button>
+
+<script>
+    // 函数用于处理文件上传
+    function uploadFile() {
+        // 获取选中的文件
+        var fileInput = document.getElementById('file-input');
+        var file = fileInput.files[0];
+        
+        // 创建FormData对象并添加文件
+        var formData = new FormData();
+        formData.append('file', file);
+        
+        // 发送请求到服务器
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => console.log(data))
+        .catch(error => console.error('Error:', error));
+    }
+
+    // 函数用于发送消息和接收回复
+    function sendMessage() {
+        var userInput = document.getElementById('user-input');
+        var message = userInput.value.trim();
+        var chatBox = document.getElementById('chat-box');
+
+        if (message !== "") {
+            // 将用户的消息显示在聊天框中
+            chatBox.innerHTML += `<div>用户: ${message}</div>`;
+
+            // 发送消息到服务器并接收回复
+            fetch('/reply', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 将服务器的回复显示在聊天框中
+                chatBox.innerHTML += `<div>系统: ${data.reply}</div>`;
+                // 滚动到最新的消息
+                chatBox.scrollTop = chatBox.scrollHeight;
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        // 清空输入框
+        userInput.value = '';
+    }
+</script>
+
+</body>
+</html>
+```
+
+**后端设计（Node.js 示例）**
+```javascript
+const express = require('express');
+const multer = require('multer');
+const bodyParser = require('body-parser');
+const app = express();
+
+// 设置静态文件目录
+app.use(express.static('public'));
+
+// 配置文件上传
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+        cb(null, file.fieldname + '-' + Date.now() + '.pdf');
+    }
+});
+
+const upload = multer({ storage: storage });
+
+app.use(bodyParser.json());
+
+// 上传文件的路由
+app.post('/upload', upload.single('file'), function (req, res) {
+    // 处理文件上传
+    res.json({ message: '文件上传成功', file: req.file });
+});
+
+// 互动消息的路由
+app.post('/reply', function (req, res) {
+    // 获取用户输入的文字
+    const userMessage = req.body.message;
+    
+    // 此处应有对话系统逻辑（例如：调用机器学习模型、规则引擎等）
+    // 现在我们返回一个简单的静态回复
+    const systemReply = '这是自动回复的消息';
+
+    res.json({ reply: systemReply });
+});
+
+const PORT = 3000;
+app.listen(PORT, function () {
+    console.log(`服务器运行在 http://localhost:${PORT}`);
+});
